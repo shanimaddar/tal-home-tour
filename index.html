@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>הדמיה לטל</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#cfd8de;font-family:"Segoe UI","Heebo",Arial,sans-serif}
+  canvas{display:block}
+  #ui{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:5}
+  #ui .row{display:flex;gap:8px;align-items:center}
+  #styles button{padding:7px 14px;font-size:13px}
+  #styles span{font-size:13px;color:#fff;background:rgba(20,26,32,.6);padding:6px 12px;border-radius:999px}
+  #ui button{border:0;border-radius:999px;padding:10px 18px;font-size:15px;background:rgba(255,255,255,.88);color:#222;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15);font-family:inherit}
+  #ui button.on{background:#1f2a33;color:#fff}
+  #time{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(20,26,32,.72);color:#fff;padding:8px 16px;border-radius:999px;z-index:5;direction:ltr;font-size:15px}
+  #time input{width:min(46vw,340px);accent-color:#ffb655}
+  #time b{min-width:104px;text-align:center;font-weight:600;font-size:14px}
+  #card{position:fixed;bottom:140px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(255,255,255,.95);color:#1f2a33;padding:14px 26px;border-radius:16px;z-index:6;text-align:center;max-width:min(84vw,460px);box-shadow:0 6px 24px rgba(0,0,0,.25);opacity:0;transition:opacity .6s,transform .6s;pointer-events:none}
+  #card.show{opacity:1;transform:translateX(-50%)}
+  #card h3{margin:0;font-size:22px}
+  #card small{display:block;margin:2px 0 6px;color:#a06a1c;font-weight:600;font-size:14px}
+  #card p{margin:0;font-size:15px;line-height:1.45}
+  #welcome{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,rgba(18,24,30,.80),rgba(18,24,30,.58));backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);transition:opacity .7s}
+  #welcome.hide{opacity:0;pointer-events:none}
+  #welcome .box{text-align:center;color:#fff;padding:24px;max-width:90vw}
+  #welcome small{letter-spacing:.2em;font-size:13px;opacity:.75}
+  #welcome h1{font-size:clamp(40px,9vw,76px);margin:10px 0 6px;font-weight:700}
+  #welcome p{font-size:clamp(15px,3.6vw,19px);opacity:.85;margin:0 0 30px}
+  #welcome button{display:block;margin:10px auto;border:0;border-radius:999px;padding:14px 34px;font-size:18px;font-family:inherit;cursor:pointer;background:#fff;color:#1f2a33;min-width:240px}
+  #welcome button.ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.6)}
+  #joy{position:fixed;left:22px;bottom:132px;width:116px;height:116px;border-radius:50%;background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.55);z-index:6;display:none;touch-action:none}
+  #joy i{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  canvas{touch-action:none}
+  @media (max-width:640px){
+    #ui{top:8px;gap:6px;width:100%} #ui .row{flex-wrap:wrap;justify-content:center;gap:6px}
+    #ui button{padding:8px 12px;font-size:13px} #styles button{padding:6px 10px;font-size:12px} #styles span{display:none}
+    #time{bottom:64px;padding:6px 12px} #time b{min-width:86px;font-size:12px}
+    #hint{font-size:12px;padding:7px 12px;bottom:10px;width:max-content;max-width:92vw}
+    #card{bottom:250px;padding:10px 18px} #card h3{font-size:18px} #card p{font-size:13px}
+  }
+  #hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(20,26,32,.72);color:#fff;padding:10px 18px;border-radius:12px;font-size:14px;z-index:5;pointer-events:none;text-align:center;line-height:1.5}
+  #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.8);box-shadow:0 0 3px rgba(0,0,0,.6);z-index:4;display:none}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="ui">
+  <div class="row">
+    <button id="bWalk" class="on">🚶 הליכה</button>
+    <button id="bDoll">🏠 בית בובות</button>
+    <button id="bTour">▶ התחל סיור</button>
+    <button id="bMute" title="השתקה">🔊</button>
+  </div>
+  <div class="row" id="styles">
+    <span>סגנון</span>
+    <button data-s="modern">מודרני</button>
+    <button data-s="scandi">סקנדינבי</button>
+    <button data-s="luxury">יוקרה חמה</button>
+  </div>
+</div>
+<div id="time">
+  <span>🌅</span><input id="tod" type="range" min="6" max="22" step="0.05" value="10"><span>🌙</span>
+  <b id="todLabel">10:00</b>
+</div>
+<div id="card"><h3></h3><small></small><p></p></div>
+<div id="cross"></div>
+<div id="joy"><i></i></div>
+<div id="welcome">
+  <div class="box">
+    <small>סיור תלת-ממדי</small>
+    <h1 id="wTitle"></h1>
+    <p id="wSub"></p>
+    <button id="wTour">▶ התחל סיור מודרך</button>
+    <button id="wWalk" class="ghost">הליכה חופשית</button>
+  </div>
+</div>
+<div id="hint">לחצו על המסך כדי להתחיל ללכת · <b>W A S D</b> או החצים לתנועה · עכבר להסתכל · <b>Shift</b> לריצה · <b>Esc</b> לשחרור העכבר</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ============================================================
+   כל המידות בס"מ, לפי התוכנית. x = מערב→מזרח, y = צפון→דרום.
+   בתלת-ממד: X = x/100, Z = y/100, Y = גובה. צפון = Z שלילי.
+   ============================================================ */
+/* ===== פרטי הפרויקט – עורכים כאן ===== */
+const PROJECT = { title: 'הדמיה לטל', subtitle: 'בית פרטי · מפלס מגורים ואגף חדרים' };
+/* ====================================== */
+const H = 270;            // גובה תקרה
+const LOWER = -153;       // מפלס הקומה התחתונה (יציאה אחורית)
+const GROUND_S = -45;     // קרקע בצד הדרומי
+const GROUND_N = -153;    // קרקע בצד הצפוני (שיפוע)
+const WING = 144;         // מפלס אגף החדרים: 8 מדרגות × 18 ס"מ מעל הסלון
+// אגף החדרים (הורים, ילדים, מסדרון, רחצה) – מפלס עליון
+const inWing = (x, y) => (x <= 826 && y <= 706) || (x <= 376 && y <= 963);
+const LV = (x, y) => inWing(x, y) ? WING : 0;
+let AUTO = true;
+// גובה עליון של קיר/תקרה: הסלון, המטבח ופינת האוכל בגובה כפול, כדי שמהמדרגות רואים את כל הבית
+const isShort = (x, y) => (x >= 1028 && y >= 1268) || (x >= 790 && x <= 1028 && y >= 1250);
+const topAt = (x, y) => inWing(x, y) ? H + WING : isShort(x, y) ? H : H + WING;          // הרמה אוטומטית של אלמנטים שנמצאים באגף
+
+/* ---------------- renderer / scene ---------------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfd6e6);
+scene.fog = new THREE.Fog(0xbfd6e6, 40, 90);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(82, innerWidth / innerHeight, 0.05, 200);
+
+/* ---------------- canvas textures ---------------- */
+function canvasTex(w, h, draw, repeat = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); draw(g, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+function noise(g, w, h, amt, n = 4000) {
+  for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '0,0,0' : '255,255,255'},${rnd(0, amt)})`; g.fillRect(rnd(0, w), rnd(0, h), rnd(1, 3), rnd(1, 3)); }
+}
+// פרקט אלון (1 טקסטורה = 1.2 מ')
+const texWood = canvasTex(1024, 1024, (g, w, h) => {
+  const rows = 8, rh = h / rows;
+  for (let r = 0; r < rows; r++) {
+    let x = -rnd(0, 400);
+    while (x < w) {
+      const L = rnd(300, 600), base = rnd(0, 1);
+      const col = `hsl(${30 + base * 6},${38 + base * 12}%,${58 + base * 10}%)`;
+      g.fillStyle = col; g.fillRect(x, r * rh, L, rh);
+      for (let k = 0; k < 14; k++) { // עורקי עץ
+        g.strokeStyle = `rgba(90,55,25,${rnd(.04, .14)})`; g.lineWidth = rnd(.5, 2);
+        const yy = r * rh + rnd(4, rh - 4);
+        g.beginPath(); g.moveTo(x, yy);
+        for (let s = 0; s <= 6; s++) g.lineTo(x + L * s / 6, yy + Math.sin(s * rnd(.5, 1.5)) * rnd(1, 5));
+        g.stroke();
+      }
+      g.fillStyle = 'rgba(60,35,15,.35)'; g.fillRect(x, r * rh, 2, rh);
+      x += L;
+    }
+    g.fillStyle = 'rgba(60,35,15,.35)'; g.fillRect(0, r * rh, w, 2);
+  }
+  noise(g, w, h, .05);
+});
+// פורצלן 60×60 (1 טקסטורה = 1.2 מ')
+const texTile = canvasTex(1024, 1024, (g, w, h) => {
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+    const l = rnd(86, 90); g.fillStyle = `hsl(35,8%,${l}%)`; g.fillRect(i * 512, j * 512, 512, 512);
+    for (let k = 0; k < 25; k++) { g.strokeStyle = `rgba(150,140,130,${rnd(.03, .08)})`; g.lineWidth = rnd(2, 10); g.beginPath(); g.moveTo(i * 512 + rnd(0, 512), j * 512); g.bezierCurveTo(i * 512 + rnd(0, 512), j * 512 + 200, i * 512 + rnd(0, 512), j * 512 + 300, i * 512 + rnd(0, 512), j * 512 + 512); g.stroke(); }
+  }
+  noise(g, w, h, .03);
+  g.fillStyle = 'rgba(120,115,108,.55)';
+  for (let i = 0; i <= 2; i++) { g.fillRect(i * 512 - 2, 0, 4, h); g.fillRect(0, i * 512 - 2, w, 4); }
+});
+// אריחי אמבטיה 30×60 (1 טקסטורה = 1.2 מ')
+const texBath = canvasTex(1024, 1024, (g, w, h) => {
+  for (let j = 0; j < 4; j++) for (let i = 0; i < 2; i++) {
+    g.fillStyle = `hsl(200,4%,${rnd(66, 71)}%)`; g.fillRect(i * 512, j * 256, 512, 256);
+  }
+  noise(g, w, h, .06, 8000);
+  g.fillStyle = 'rgba(60,60,60,.5)';
+  for (let i = 0; i <= 2; i++) g.fillRect(i * 512 - 2, 0, 4, h);
+  for (let j = 0; j <= 4; j++) g.fillRect(0, j * 256 - 2, w, 4);
+});
+// דק עץ (1 טקסטורה = 1.2 מ')
+const texDeck = canvasTex(1024, 1024, (g, w, h) => {
+  const n = 8, bw = w / n;
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = `hsl(25,${rnd(30, 40)}%,${rnd(38, 46)}%)`; g.fillRect(i * bw, 0, bw - 8, h);
+    for (let k = 0; k < 10; k++) { g.fillStyle = `rgba(40,20,10,${rnd(.05, .15)})`; g.fillRect(i * bw + rnd(4, bw - 14), 0, rnd(1, 3), h); }
+  }
+  noise(g, w, h, .06);
+});
+// אבן לכניסה
+const texStone = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = '#b9b2a6'; g.fillRect(0, 0, w, h); noise(g, w, h, .12, 12000);
+  g.fillStyle = 'rgba(80,75,70,.5)'; g.fillRect(0, 254, w, 4); g.fillRect(254, 0, 4, h);
+});
+const texGrass = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = '#7d9a5a'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `hsl(${rnd(75, 100)},${rnd(25, 45)}%,${rnd(30, 50)}%)`; g.fillRect(rnd(0, w), rnd(0, h), 1.5, rnd(2, 6)); }
+});
+// בד
+const texFabric = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 2) { g.fillStyle = `rgba(0,0,0,${rnd(.02, .07)})`; g.fillRect(0, y, w, 1); }
+  for (let x = 0; x < w; x += 2) { g.fillStyle = `rgba(0,0,0,${rnd(.02, .06)})`; g.fillRect(x, 0, 1, h); }
+});
+texFabric.repeat.set(3, 3);
+const texMarble = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = '#fbfaf8'; g.fillRect(0, 0, w, h);
+  for (let k = 0; k < 18; k++) { g.strokeStyle = `rgba(120,115,110,${rnd(.06, .28)})`; g.lineWidth = rnd(.6, 3.5); g.beginPath(); let x = rnd(0, w), y = 0; g.moveTo(x, y); while (y < h) { x += rnd(-40, 40); y += rnd(20, 60); g.lineTo(x, y); } g.stroke(); }
+  noise(g, w, h, .03);
+});
+
+/* ---------------- materials ---------------- */
+const std = (color, rough = .8, metal = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
+const M = {
+  wall: std(0xf3f0ea, .92),
+  ceiling: std(0xfbfaf7, .95),
+  wood: std(0xffffff, .55, 0, { map: texWood }),
+  tile: std(0xffffff, .2, 0, { map: texTile }),
+  bath: std(0xffffff, .3, 0, { map: texBath }),
+  deck: std(0xffffff, .8, 0, { map: texDeck }),
+  stone: std(0xffffff, .85, 0, { map: texStone }),
+  grass: std(0xffffff, 1, 0, { map: texGrass }),
+  plinth: std(0xa9a49b, .95),
+  frame: std(0x2f3337, .45, .6),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xdfeff7, roughness: .05, metalness: 0, transparent: true, opacity: .18, envMapIntensity: 1.5, side: THREE.DoubleSide, depthWrite: false }),
+  doorWood: std(0xd9cfc0, .6),
+  frosted: new THREE.MeshPhysicalMaterial({ color: 0xf4f7f8, roughness: .7, metalness: 0, transparent: true, opacity: .82, side: THREE.DoubleSide }),
+  frontDoor: std(0x4a3526, .5),
+  oak: std(0xb88a5a, .6, 0, { map: texWood }),
+  walnut: std(0x6b4a33, .5, 0, { map: texWood }),
+  white: std(0xf7f7f5, .5),
+  whiteGloss: std(0xffffff, .15),
+  ceramic: std(0xffffff, .12, 0),
+  chrome: std(0xdddddd, .15, 1),
+  black: std(0x222222, .4, .2),
+  matteBlack: std(0x1c1c1c, .7),
+  counter: std(0xffffff, .16, 0, { map: texMarble }),
+  artFrame: std(0x222222, .5),
+  accent: std(0xc9b79c, .9, 0, { map: texFabric }),
+  cabinet: std(0xe9e4dc, .45),
+  sofa: std(0xb9b3aa, .95, 0, { map: texFabric }),
+  sofa2: std(0x7d8a86, .95, 0, { map: texFabric }),
+  linen: std(0xf2efe9, .95, 0, { map: texFabric }),
+  throwBlanket: std(0xc9b79c, .95, 0, { map: texFabric }),
+  pillow: std(0xffffff, .95, 0, { map: texFabric }),
+  rug: std(0xd8d0c4, 1, 0, { map: texFabric }),
+  rug2: std(0x9aa6a8, 1, 0, { map: texFabric }),
+  leaf: std(0x4f7a45, .8),
+  pot: std(0xc9b8a3, .8),
+  screen: std(0x111418, .2, .3),
+  steel: std(0xb8bcbf, .3, .8),
+  lampShade: std(0xfff4e0, .9, 0, { emissive: 0x332a1a }),
+};
+
+/* ---------------- helpers ---------------- */
+const house = new THREE.Group(); scene.add(house);
+const ceilings = new THREE.Group(); scene.add(ceilings);
+const roof = new THREE.Group(); scene.add(roof);
+const labels = new THREE.Group(); scene.add(labels); labels.visible = false;
+const colliders = []; // [x0,y0,x1,y1] בס"מ
+
+function mesh(geo, mat, parent = house, cast = true, recv = true) {
+  const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = recv; parent.add(m); return m;
+}
+// קופסה לפי מלבן תוכנית (ס"מ) וגבהים (ס"מ)
+function box(x0, y0, x1, y1, z0, z1, mat, parent = house, cast = true) {
+  const off = AUTO ? LV((x0 + x1) / 2, (y0 + y1) / 2) : 0;
+  const w = Math.abs(x1 - x0), d = Math.abs(y1 - y0), h = z1 - z0;
+  const m = mesh(new THREE.BoxGeometry(w / 100, h / 100, d / 100), mat, parent, cast);
+  m.position.set((x0 + x1) / 200, (z0 + z1) / 200 + off / 100, (y0 + y1) / 200);
+  return m;
+}
+// רצפה עם UV בקנה מידה של העולם (tile = גודל טקסטורה במטרים)
+function floorRect(x0, y0, x1, y1, mat, z = 0, tile = 1.2) {
+  const w = (x1 - x0) / 100, d = (y1 - y0) / 100;
+  const g = new THREE.PlaneGeometry(w, d);
+  const uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * w + x0 / 100) / tile, (uv.getY(i) * d - y1 / 100) / tile);
+  const m = mesh(g, mat, house, false, true);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set((x0 + x1) / 200, (z + (AUTO ? LV((x0 + x1) / 2, (y0 + y1) / 2) : 0)) / 100, (y0 + y1) / 200);
+  return m;
+}
+// קבוצת רהיט: קואורדינטות מקומיות בס"מ, מרכז ב-(cx,cy), סיבוב במעלות
+function piece(cx, cy, rotDeg = 0, z = 0) {
+  const g = new THREE.Group();
+  g.position.set(cx / 100, (z + (AUTO ? LV(cx, cy) : 0)) / 100, cy / 100);
+  g.rotation.y = -rotDeg * Math.PI / 180;
+  g.scale.setScalar(0.01);
+  house.add(g);
+  const api = {
+    g,
+    b(w, h, d, x, y, zz, mat) { const m = mesh(new THREE.BoxGeometry(w, h, d), mat, g); m.position.set(x, y, zz); return m; }, // y = גובה מרכז
+    cyl(rt, rb, h, x, y, zz, mat, seg = 24) { const m = mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat, g); m.position.set(x, y, zz); return m; },
+    sph(r, x, y, zz, mat, sx = 1, sy = 1, sz = 1) { const m = mesh(new THREE.SphereGeometry(r, 20, 14), mat, g); m.position.set(x, y, zz); m.scale.set(sx, sy, sz); return m; },
+    rbox(w, h, d, r, x, y, zz, mat) { const m = mesh(roundedBox(w, h, d, r), mat, g); m.position.set(x, y, zz); return m; },
+  };
+  return api;
+}
+function roundedBox(w, h, d, r) {
+  const s = new THREE.Shape(); const x = -w / 2, y = -d / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + d - r); s.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+  s.lineTo(x + r, y + d); s.quadraticCurveTo(x, y + d, x, y + d - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  const g = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: true, bevelThickness: Math.min(r, h / 2) * .6, bevelSize: Math.min(r, h / 2) * .6, bevelSegments: 3, curveSegments: 6 });
+  g.rotateX(-Math.PI / 2); g.translate(0, -h / 2, 0); g.computeVertexNormals();
+  return g;
+}
+function collide(x0, y0, x1, y1) { colliders.push([Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)]); }
+
+/* ============================================================
+   קירות (מלבנים בס"מ לפי התוכנית)
+   ============================================================ */
+const WALLS = [
+  // חדר הורים
+  [152, 0, 536, 23], [656, 0, 825, 23], [152, 23, 177, 332],
+  [802, 0, 825, 43], [802, 163, 825, 399], [802, 469, 825, 505], [802, 573, 825, 705],
+  [177, 319, 381, 332], [496, 322, 704, 332], [790, 322, 802, 332],
+  [368, 23, 378, 107], [368, 219, 378, 319],                       // מחיצות חדר ארונות
+  // חדרי ילדים
+  [0, 309, 38, 332], [138, 309, 177, 332],
+  [0, 332, 23, 416], [0, 536, 23, 726], [0, 846, 23, 962],
+  [23, 939, 142, 962], [262, 939, 375, 962],
+  [23, 621, 381, 634], [368, 332, 381, 535], [368, 611, 381, 621], [381, 417, 386, 427], [482, 417, 496, 427],
+  [352, 634, 375, 654], [352, 729, 375, 962], [352, 962, 375, 1122],
+  // סלון
+  [352, 1302, 376, 1325], [556, 1302, 790, 1325],
+  // רחצה וכביסה
+  [496, 332, 506, 523], [506, 439, 586, 449], [586, 439, 596, 534], [586, 620, 596, 692],
+  [596, 487, 802, 497], [496, 692, 825, 705],
+  // חדר מדרגות אחורי + מטבח
+  [933, 237, 956, 596], [956, 573, 1036, 596], [1196, 573, 1388, 596],
+  [1366, 596, 1388, 927], [1366, 1227, 1388, 1268],
+  [1181, 1245, 1366, 1268], [1028, 1245, 1053, 1268],
+  // כניסה
+  [790, 1161, 813, 1302], [790, 1302, 813, 1418], [813, 1161, 865, 1184], [965, 1161, 1028, 1184], [1005, 1184, 1028, 1245], [1005, 1245, 1028, 1457],
+  // ממ"ד / חדר שינה דרומי (קירות 40)
+  [1033, 1268, 1053, 1373], [1183, 1268, 1203, 1373], [1203, 1273, 1531, 1313],
+  [1531, 1273, 1571, 1442], [1531, 1544, 1571, 1723], [1033, 1683, 1571, 1723], [1033, 1373, 1073, 1683],
+  [1053, 1373, 1088, 1393], [1169, 1373, 1203, 1393],
+  [1203, 1393, 1213, 1403], [1203, 1503, 1213, 1513],
+  [1073, 1503, 1085, 1513], [1165, 1503, 1273, 1513], [1263, 1513, 1273, 1683],
+  [1286, 899, 1366, 909],   // קיר קצר ליד המקרר (לפי התוכנית)
+  // עמודים
+  [804, 886, 824, 906], [1033, 880, 1053, 909],
+];
+AUTO = false;
+for (const [x0, y0, x1, y1] of WALLS) { box(x0, y0, x1, y1, 0, topAt((x0 + x1) / 2, (y0 + y1) / 2), M.wall); collide(x0, y0, x1, y1); }
+AUTO = true;
+
+/* ---------------- פתחים: חלונות ---------------- */
+// [x0,y0,x1,y1, אדן, משקוף]
+const WINDOWS = [
+  [38, 309, 138, 332, 110, 210],    // ילדים 1 צפון 100/100
+  [0, 416, 23, 536, 105, 210],      // ילדים 1 מערב 120/105
+  [0, 726, 23, 846, 105, 210],      // ילדים 2 מערב
+  [142, 939, 262, 962, 105, 210],   // ילדים 2 דרום
+  [536, 0, 656, 23, 105, 210],      // הורים צפון
+  [802, 43, 825, 163, 105, 210],    // הורים מזרח
+  [802, 399, 825, 469, 140, 210],   // רחצת הורים
+  [802, 505, 825, 573, 140, 210],   // רחצת ילדים
+  [1036, 573, 1196, 596, 105, 210], // מטבח מעל הכיור
+  [352, 1122, 375, 1302, 90, 210],  // סלון מערב 180/120
+  [376, 1302, 556, 1325, 90, 210],  // סלון דרום 180/120
+  [1531, 1442, 1571, 1544, 110, 210], // ממ"ד
+];
+function windowAt([x0, y0, x1, y1, sill, head]) {
+  const o = LV((x0 + x1) / 2, (y0 + y1) / 2);
+  AUTO = false; box(x0, y0, x1, y1, 0, sill + o, M.wall); box(x0, y0, x1, y1, head + o, topAt((x0 + x1) / 2, (y0 + y1) / 2), M.wall); AUTO = true;
+  collide(x0, y0, x1, y1);
+  const alongX = (x1 - x0) > (y1 - y0);
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const L = alongX ? x1 - x0 : y1 - y0;
+  const p = piece(cx, cy, alongX ? 0 : 90, sill);
+  const hh = head - sill, f = 5;
+  p.b(L, f, 7, 0, f / 2, 0, M.frame); p.b(L, f, 7, 0, hh - f / 2, 0, M.frame);
+  p.b(f, hh, 7, -L / 2 + f / 2, hh / 2, 0, M.frame); p.b(f, hh, 7, L / 2 - f / 2, hh / 2, 0, M.frame);
+  if (L > 90) p.b(4, hh, 6, 0, hh / 2, 0, M.frame);
+  const gl = p.b(L - 2 * f, hh - 2 * f, 1, 0, hh / 2, 0, M.glass); gl.castShadow = false;
+  // אדן שיש פנימי
+  p.b(L + 6, 2, (alongX ? (y1 - y0) : (x1 - x0)) + 4, 0, -1, 0, M.counter);
+}
+WINDOWS.forEach(windowAt);
+
+/* ---------------- פתחים: דלתות ---------------- */
+// [x0,y0,x1,y1, ציר בצד ההתחלה(true)/הסוף(false), כיוון פתיחה ±1, חומר, רוחב כנף]
+const DOORS = [
+  [381, 322, 496, 332, true, -1, 'open', 90],  // פתח מהמבואה לחדר ההורים
+  [386, 417, 482, 427, true, -1, 'in', 96],   // דלת חדר הורים (לפי התוכנית)
+  [704, 322, 790, 332, false, 1, 'in', 80],  // רחצת הורים
+  [368, 535, 381, 611, false, -1, 'in', 76],   // ילדים 1
+  [352, 654, 375, 729, true, -1, 'in', 75],  // ילדים 2
+  [586, 534, 596, 620, true, 1, 'in', 80],    // רחצת ילדים
+  [865, 1161, 965, 1184, false, -1, 'front', 100], // דלת כניסה
+  [1053, 1245, 1181, 1268, false, 1, 'open', 80], // מעבר פתוח למסדרון הממ"ד
+  [1088, 1373, 1169, 1393, true, 1, 'open', 80],   // דלת הממ"ד
+  [1203, 1403, 1213, 1503, false, 1, 'in', 90],   // חדר שינה דרומי
+  [1085, 1503, 1165, 1513, true, 1, 'in', 80],   // מקלחת דרומית
+];
+function doorAt([x0, y0, x1, y1, hingeStart, swing, kind, leafW]) {
+  const head = 210;
+  { const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2; box(x0, y0, x1, y1, head, topAt(cx, cy) - LV(cx, cy), M.wall); }
+  if (kind === 'open') { box(x0, y0, x1, y1, 0, 1, M.tile, house, false); return; }
+  const alongX = (x1 - x0) > (y1 - y0);
+  // סף שיש
+  box(x0, y0, x1, y1, 0, 1, M.counter, house, false);
+  const L = alongX ? x1 - x0 : y1 - y0;
+  const lw = Math.min(leafW, L);
+  // כנף פתוחה ב-90°
+  const mat = kind === 'front' ? M.frontDoor : M.doorWood;
+  if (alongX) {
+    const hx = hingeStart ? x0 + 4 : x1 - 4;
+    const cy = (y0 + y1) / 2 + swing * (lw / 2 + (y1 - y0) / 2);
+    box(hx - 2, cy - lw / 2, hx + 2, cy + lw / 2, 0, head - 2, mat);
+    const hp = piece(hx + (hingeStart ? 8 : -8), cy + swing * (lw / 2 - 8), 0, 0); hp.b(12, 2, 2, 0, 100, 0, M.chrome);
+  } else {
+    const hy = hingeStart ? y0 + 4 : y1 - 4;
+    const cx = (x0 + x1) / 2 + swing * (lw / 2 + (x1 - x0) / 2);
+    box(cx - lw / 2, hy - 2, cx + lw / 2, hy + 2, 0, head - 2, mat);
+  }
+  // משקוף
+  if (alongX) { box(x0, y0 - 1, x0 + 3, y1 + 1, 0, head, M.white); box(x1 - 3, y0 - 1, x1, y1 + 1, 0, head, M.white); }
+  else { box(x0 - 1, y0, x1 + 1, y0 + 3, 0, head, M.white); box(x0 - 1, y1 - 3, x1 + 1, y1, 0, head, M.white); }
+}
+DOORS.forEach(doorAt);
+
+// דלת הזזה לדק 300/220
+(function sliding() {
+  const x0 = 1366, x1 = 1388, y0 = 927, y1 = 1227, head = 220;
+  box(x0, y0, x1, y1, head, H + WING, M.wall); box(x0, y0, x1, y1, 0, 2, M.frame);
+  const p = piece((x0 + x1) / 2, (y0 + y1) / 2, 90, 0);
+  const f = 5, L = 300;
+  p.b(L, f, 10, 0, head - f / 2, 0, M.frame);
+  p.b(f, head, 10, -L / 2 + f / 2, head / 2, 0, M.frame); p.b(f, head, 10, L / 2 - f / 2, head / 2, 0, M.frame);
+  // כנף קבועה + כנף פתוחה בחצי
+  for (const [off, dz] of [[-L / 4, -2.5], [-L / 4 + 95, 2.5]]) {
+    p.b(L / 2, f, 4, off, f / 2 + 2, dz, M.frame); p.b(L / 2, f, 4, off, head - f * 1.5, dz, M.frame);
+    p.b(f, head - 10, 4, off - L / 4 + f / 2, head / 2, dz, M.frame); p.b(f, head - 10, 4, off + L / 4 - f / 2, head / 2, dz, M.frame);
+    const gl = p.b(L / 2 - 2 * f, head - 2 * f - 6, 1, off, head / 2, dz, M.glass); gl.castShadow = false;
+  }
+  collide(x0, y0, x1, y0 + 150);
+})();
+
+/* ============================================================
+   רצפות, תקרות, גג
+   ============================================================ */
+const ROOMS = [
+  // [שם, מלבן, חומר, תווית?]
+  ['חדר הורים', [177, 23, 802, 319], 'wood', [590, 170]],
+  ['חדר ארונות', null, null, [270, 170]],
+  ['רחצת הורים', [506, 332, 802, 487], 'bath', [690, 400]],
+  ['כביסה', [506, 487, 586, 523], 'bath', null],
+  ['מסדרון', [381, 332, 496, 705], 'tile', [438, 470]],
+  [null, [496, 523, 586, 620], 'tile', null],
+  ['רחצת ילדים', [596, 497, 802, 692], 'bath', [700, 590]],
+  ['חדר ילדים 1', [23, 332, 368, 621], 'wood', [195, 476]],
+  ['חדר ילדים 2', [23, 634, 352, 939], 'wood', [187, 786]],
+  ['סלון', [375, 705, 790, 1302], 'tile', [580, 1000]],
+  ['מטבח', [825, 596, 1366, 705], 'tile', [1100, 740]],
+  ['פינת אוכל', [790, 705, 1366, 1161], 'tile', [1180, 1060]],
+  [null, [1028, 1161, 1366, 1245], 'tile', null],
+  [null, [825, 545, 933, 596], 'tile', null],
+  ['כניסה', [813, 1184, 1005, 1418], 'stone', [909, 1300]],
+  ['פרוזדור', [1053, 1268, 1183, 1373], 'tile', null],
+  [null, [1073, 1373, 1203, 1513], 'tile', null],
+  ['מקלחת', [1073, 1513, 1263, 1683], 'bath', [1168, 1600]],
+  ['חדר שינה (ממ"ד)', [1213, 1313, 1531, 1513], 'wood', [1372, 1450]],
+  [null, [1273, 1513, 1531, 1683], 'wood', null],
+  ['מרפסת', [1388, 573, 1758, 1268], 'deck', [1573, 920]],
+];
+ROOMS.forEach(([name, r, mat, lab, ceil], i) => {
+  if (r) {
+    const z = mat === 'deck' ? -3 : 0.02 * (i % 3);
+    floorRect(r[0], r[1], r[2], r[3], M[mat], z, mat === 'stone' ? 1.0 : 1.2);
+    if (mat !== 'deck') for (const q of (ceil || [r])) {
+      const qx = (q[0] + q[2]) / 2, qy = (q[1] + q[3]) / 2, ch = topAt(qx, qy) - LV(qx, qy);
+      const c = floorRect(q[0], q[1], q[2], q[3], M.ceiling, ch);
+      c.rotation.x = Math.PI / 2; c.parent.remove(c); ceilings.add(c);
+      box(q[0] - 25, q[1] - 25, q[2] + 25, q[3] + 25, ch, ch + 25, M.white, roof, true);
+    }
+    const o = LV((r[0] + r[2]) / 2, (r[1] + r[3]) / 2);
+    AUTO = false; box(r[0] - 2, r[1] - 2, r[2] + 2, r[3] + 2, LOWER - 10, mat === 'deck' ? -4 : o - 1, M.plinth, house, false); AUTO = true;
+  }
+  if (name && lab) labels.add(makeLabel(name, lab[0], lab[1]));
+});
+// תקרה וגג מעל חדר המדרגות האחורי
+{ const c = floorRect(825, 214, 933, 545, M.ceiling, H + WING); c.rotation.x = Math.PI / 2; c.parent.remove(c); ceilings.add(c);
+  box(800, 190, 958, 560, H + WING, H + WING + 25, M.white, roof); }
+
+function makeLabel(text, x, y) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const g = c.getContext('2d'); g.direction = 'rtl';
+  g.font = 'bold 52px Segoe UI, Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = Math.min(500, g.measureText(text).width + 50);
+  g.fillStyle = 'rgba(25,32,40,.78)'; g.beginPath(); if (g.roundRect) g.roundRect(256 - w / 2, 24, w, 80, 40); else g.rect(256 - w / 2, 24, w, 80); g.fill();
+  g.fillStyle = '#fff'; g.fillText(text, 256, 66);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }));
+  s.scale.set(3.2, 0.8, 1); s.position.set(x / 100, 3.4 + LV(x, y) / 100, y / 100); s.renderOrder = 10;
+  return s;
+}
+
+/* ---------------- קרקע (שיפוע לצפון) ---------------- */
+function ground(x0, y0, x1, y1, z) { AUTO = false; floorRect(x0, y0, x1, y1, M.grass, z, 3); AUTO = true; }
+ground(-2500, 237, 4000, 4000, GROUND_S);
+ground(-2500, -2500, 4000, 237, GROUND_N);
+AUTO = false; box(-2500, 225, 4000, 237, GROUND_N, GROUND_S, M.plinth, house, false); AUTO = true; // קיר תומך
+// שביל לכניסה
+floorRect(813, 1520, 1005, 2200, M.stone, GROUND_S + 1, 1.0);
+
+/* ---------------- מדרגות ---------------- */
+// מדרגות יורדות לקומה התחתונה (יציאה אחורית): מ-y=545 צפונה עד y=310
+{
+  const steps = 9, run = (545 - 310) / steps, rise = (0 - LOWER) / steps;
+  for (let i = 0; i < steps; i++) {
+    const yTop = 545 - i * run, z = -rise * (i + 1);
+    box(825, yTop - run, 933, yTop, LOWER, z, i % 2 ? M.tile : M.tile);
+  }
+  floorRect(825, 214, 933, 310, M.tile, LOWER + 0.5);
+  AUTO = false; box(802, 214, 825, 596, LOWER, 0, M.wall); AUTO = true; box(933, 214, 956, 237, LOWER, H + WING, M.wall);
+  box(825, 214, 841, 237, LOWER, H + WING, M.wall); box(917, 214, 933, 237, LOWER, H + WING, M.wall);
+  box(841, 214, 917, 237, LOWER + 210, H + WING, M.wall);
+  box(841, 222, 917, 229, LOWER, LOWER + 208, M.frontDoor); // דלת אחורית
+  box(825, 214, 933, 237, LOWER - 10, LOWER, M.plinth);
+  // דלת זכוכית חלבית בראש המדרגות (בין המטבח לחדר המדרגות)
+  box(825, 588, 933, 598, 215, H + WING, M.wall);
+  const p = piece(879, 593, 0, 0);
+  p.b(104, 4, 6, 0, 213, 0, M.frame); p.b(4, 215, 6, -50, 107.5, 0, M.frame); p.b(4, 215, 6, 50, 107.5, 0, M.frame);
+  const fr = p.b(96, 205, 1.5, 0, 106, 0, M.frosted); fr.castShadow = false;
+  p.b(2.5, 60, 4, 42, 105, 4, M.chrome);
+  collide(825, 214, 933, 598);
+}
+// מדרגות עולות לאגף החדרים: x 740→540 עולות מערבה, פודסט 375-540, ממנו נכנסים למסדרון
+{
+  const steps = 8, run = 25, rise = WING / 8;
+  for (let i = 0; i < steps; i++) {
+    const x1 = 740 - i * run;
+    box(x1 - run, 708, x1, 798, 0, rise * (i + 1), M.oak);
+  }
+  box(375, 705, 540, 798, 0, WING, M.oak); // פודסט = מפלס האגף
+  // מעקה זכוכית בצד הדרומי (המעקה עולה עם המדרגות)
+  const gl = box(375, 797, 740, 799, 0, WING + 95, M.glass); gl.castShadow = false;
+  box(375, 796, 740, 800, WING + 95, WING + 99, M.steel);
+  collide(375, 795, 745, 801);
+}
+
+/* ---------------- כניסה: גג פרגולה + מדרגות ---------------- */
+box(790, 1161, 1028, 1457, H, H + 25, M.white, roof);
+for (let i = 0; i < 3; i++) box(813, 1418 + i * 34, 1005, 1418 + (i + 1) * 34, GROUND_S, -15 * (i + 1) + 0, M.stone);
+
+/* ============================================================
+   רהיטים
+   ============================================================ */
+function bed(cx, cy, w, l, rot, sheet = M.linen, throwM = M.throwBlanket) {
+  const p = piece(cx, cy, rot);
+  p.b(w + 6, 30, l + 6, 0, 15, 0, M.oak);                       // בסיס
+  p.rbox(w, 22, l - 4, 6, 0, 41, 2, M.white);                    // מזרן
+  p.rbox(w + 2, 6, l * .7, 3, 0, 54, l * .15, sheet);            // שמיכה
+  p.rbox(w + 4, 4, 45, 2, 0, 57, l * .3, throwM);                // כיסוי
+  p.b(w + 10, 110, 8, 0, 55, -l / 2 - 4, M.oak);                 // ראש מיטה
+  p.rbox(42, 12, 28, 6, 0, 66, -l / 2 + 52, M.accent);           // כרית נוי
+  const n = w > 120 ? 2 : 1;
+  for (let i = 0; i < n; i++) p.rbox(w / n - 16, 14, 40, 7, n === 1 ? 0 : (i - .5) * w / 2, 62, -l / 2 + 28, M.pillow);
+  return p;
+}
+function nightstand(cx, cy, rot, lamp = true) {
+  const p = piece(cx, cy, rot);
+  p.b(45, 50, 40, 0, 25, 0, M.oak); p.b(41, 1, 2, 0, 38, 20, M.black);
+  if (lamp) { p.cyl(6, 8, 30, 0, 65, 0, M.pot); p.cyl(14, 18, 22, 0, 90, 0, M.lampShade); }
+}
+function wardrobe(x0, y0, x1, y1, h = 240, mat = M.cabinet) {
+  box(x0, y0, x1, y1, 0, h, mat); collide(x0, y0, x1, y1);
+  // קווי דלתות
+  const alongX = (x1 - x0) > (y1 - y0);
+  const L = alongX ? x1 - x0 : y1 - y0, n = Math.max(2, Math.round(L / 45));
+  for (let i = 1; i < n; i++) {
+    if (alongX) { const x = x0 + L * i / n; box(x - .4, y0 - .3, x + .4, y1 + .3, 2, h - 2, M.black, house, false); }
+    else { const y = y0 + L * i / n; box(x0 - .3, y - .4, x1 + .3, y + .4, 2, h - 2, M.black, house, false); }
+  }
+}
+function rug(x0, y0, x1, y1, mat = M.rug) { box(x0, y0, x1, y1, 0, 1.2, mat, house, false); }
+function plant(cx, cy, s = 1) {
+  const p = piece(cx, cy, rnd(0, 360));
+  p.cyl(16 * s, 12 * s, 40 * s, 0, 20 * s, 0, M.pot);
+  for (let i = 0; i < 9; i++) { const a = i * 2.4, r = rnd(4, 14) * s; p.sph(rnd(10, 16) * s, Math.cos(a) * r, (55 + rnd(0, 55)) * s, Math.sin(a) * r, M.leaf, 1, 1.4, .6); }
+}
+function chair(cx, cy, rot, mat = M.oak, seat = M.linen) {
+  const p = piece(cx, cy, rot);
+  for (const [x, z] of [[-19, -19], [19, -19], [-19, 19], [19, 19]]) p.cyl(1.6, 1.4, 45, x, 22, z, mat, 8);
+  p.rbox(44, 5, 44, 3, 0, 47, 0, seat);
+  p.b(44, 40, 3, 0, 70, -21, mat);
+}
+function toilet(cx, cy, rot) {
+  const p = piece(cx, cy, rot);
+  p.b(36, 80, 18, 0, 40, -24, M.ceramic);   // מיכל סמוי/גב
+  p.sph(19, 0, 30, 8, M.ceramic, 1, .9, 1.3);
+  p.cyl(12, 14, 30, 0, 15, 4, M.ceramic);
+  p.b(36, 2, 46, 0, 41, 6, M.white);
+}
+function vanity(x0, y0, x1, y1, wallSide) { // wallSide: n/s/e/w
+  box(x0, y0, x1, y1, 30, 85, M.walnut);
+  box(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 85, 88, M.counter);
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const p = piece(cx, cy, 0, 88);
+  p.cyl(16, 12, 10, 0, 5, 0, M.ceramic, 28);
+  // מראה
+  const mz = { n: [cx, y0 + 1], s: [cx, y1 - 1], e: [x1 - 1, cy], w: [x0 + 1, cy] }[wallSide];
+  const along = (wallSide === 'n' || wallSide === 's');
+  const L = along ? (x1 - x0) : (y1 - y0);
+  const mm = piece(mz[0], mz[1], along ? 0 : 90, 0);
+  mm.b(L * .8, 70, 1.5, 0, 140, 0, std(0xdfe6ea, .05, .9));
+  collide(x0, y0, x1, y1);
+}
+function shower(x0, y0, x1, y1, glassSides) {
+  box(x0, y0, x1, y1, 0, 3, M.bath, house, false);
+  for (const s of glassSides) {
+    let r = s === 'n' ? [x0, y0, x1, y0 + 1] : s === 's' ? [x0, y1 - 1, x1, y1] : s === 'w' ? [x0, y0, x0 + 1, y1] : [x1 - 1, y0, x1, y1];
+    const g = box(...r, 3, 200, M.glass); g.castShadow = false;
+  }
+  const p = piece((x0 + x1) / 2, (y0 + y1) / 2, 0, 0);
+  p.cyl(11, 11, 1, 0, 210, 0, M.chrome);
+}
+function sofa(cx, cy, w, d, rot, mat = M.sofa) {
+  const p = piece(cx, cy, rot);
+  p.b(w, 12, d, 0, 10, 0, M.walnut);
+  p.rbox(w - 4, 16, d - 22, 5, 0, 30, 8, mat);                    // מושב
+  p.rbox(w, 44, 20, 6, 0, 55, -d / 2 + 10, mat);                 // גב
+  p.rbox(18, 30, d, 6, -w / 2 + 9, 40, 0, mat); p.rbox(18, 30, d, 6, w / 2 - 9, 40, 0, mat);
+  for (let i = 0; i < 3; i++) p.rbox(40, 36, 12, 6, -w / 2 + 50 + i * ((w - 100) / 2), 62, -d / 2 + 24, i === 1 ? M.throwBlanket : M.pillow);
+  return p;
+}
+function table(cx, cy, r, h, topMat = M.oak) {
+  const p = piece(cx, cy, 0);
+  p.cyl(r, r, 4, 0, h - 2, 0, topMat, 40);
+  p.cyl(5, 5, h - 4, 0, (h - 4) / 2, 0, M.matteBlack, 12);
+  p.cyl(r * .45, r * .5, 3, 0, 1.5, 0, M.matteBlack, 24);
+  return p;
+}
+function pendant(cx, cy, drop = 80, size = 22) {
+  const top = topAt(cx, cy) - LV(cx, cy); drop += top - H;
+  const p = piece(cx, cy, 0, top);
+  p.cyl(.4, .4, drop, 0, -drop / 2, 0, M.black, 6);
+  p.sph(size / 2, 0, -drop - size / 3, 0, M.lampShade, 1, .7, 1);
+}
+
+// --- חדר הורים ---
+rug(470, 120, 780, 300, M.rug);
+bed(626, 125, 180, 200, 0); collide(533, 23, 719, 228);
+nightstand(510, 50, 0); nightstand(742, 50, 0);
+{ const p = piece(640, 310, 180, 0); p.b(150, 86, 3, 0, 125, 0, M.screen); p.b(180, 40, 40, 0, 20, 10, M.walnut); collide(550, 289, 730, 319); }
+plant(760, 280, .9);
+// חדר ארונות
+wardrobe(177, 23, 368, 83); wardrobe(177, 83, 237, 259); wardrobe(177, 259, 368, 319);
+{ const p = piece(300, 170, 0); p.rbox(50, 45, 50, 8, 0, 22, 0, M.linen); }
+
+// --- רחצת הורים ---
+shower(506, 332, 586, 439, ['e']);
+toilet(636, 462, 180);
+vanity(673, 437, 798, 487, 's');
+
+// --- כביסה ---
+{ const p = piece(546, 494, 180); p.b(60, 85, 58, 0, 42.5, 0, M.white); p.cyl(17, 17, 2, 0, 50, -29, M.screen); p.b(60, 85, 58, 0, 128, 0, M.white); p.cyl(17, 17, 2, 0, 135, -29, M.screen); }
+
+// --- רחצת ילדים ---
+toilet(778, 536, 90);
+vanity(600, 642, 700, 692, 's');
+shower(712, 590, 802, 692, ['w', 'n']);
+
+// --- מסדרון: ארון נגרות + פתח לבוידם ---
+wardrobe(496, 620, 586, 692, H - 1, M.oak);
+box(506, 535, 586, 620, H - 3, H - 1, std(0xe8e6e0, .9), ceilings);
+
+function tvUnit(cx, cy, rot, w = 140) { // מזנון + טלוויזיה על הקיר
+  const p = piece(cx, cy, rot, 0);
+  p.b(w, 45, 40, 0, 22.5, 0, M.walnut); p.b(w * .72, w * .42, 4, 0, 125, 18, M.screen);
+  return p;
+}
+function wallTV(cx, cy, rot, w = 100) { const p = piece(cx, cy, rot, 0); p.b(w, w * .57, 4, 0, 135, 0, M.screen); return p; }
+function desk(cx, cy, rot) { const p = piece(cx, cy, rot); p.b(120, 4, 60, 0, 73, 0, M.oak); p.b(4, 71, 56, 58, 36, 0, M.white); p.b(4, 71, 56, -58, 36, 0, M.white); }
+// --- חדר ילדים 1 ---  לפי הסקיצה: מיטה 120/200 בפינה הצפון-מערבית, שולחן בקיר המזרחי + טלוויזיה מעליו, ארון 150 בקיר הדרומי
+rug(120, 468, 300, 552, M.rug2);
+bed(131, 397, 120, 200, 270, M.linen, std(0x8fb0c4, .95, 0, { map: texFabric })); collide(23, 332, 237, 462);
+wardrobe(25, 561, 175, 621);
+desk(338, 394, 90); collide(308, 334, 368, 454);
+chair(283, 394, 270);
+wallTV(365, 394, 90, 90);
+
+// --- חדר ילדים 2 ---  לפי הסקיצה: ארון 150 בקיר הצפוני, מיטה 120/200 בפינה הדרום-מערבית, שולחן בקיר המזרחי + טלוויזיה מעליו
+rug(120, 715, 300, 800, M.rug);
+wardrobe(25, 634, 175, 694);
+bed(131, 874, 120, 200, 270, M.linen, std(0xd9a99a, .95, 0, { map: texFabric })); collide(23, 809, 237, 939);
+desk(322, 877, 90); collide(292, 817, 352, 937);
+chair(267, 877, 270);
+wallTV(349, 877, 90, 90);
+
+// --- סלון ---
+rug(480, 890, 770, 1190, M.rug);
+{ // ספה פינתית: גב לצפון + שלוחה לאורך הצד המערבי
+  const p = piece(600, 858, 0), m = M.sofa;
+  p.b(260, 12, 95, 0, 10, 0, M.walnut); p.b(95, 12, 165, -82.5, 10, 130, M.walnut);
+  p.rbox(240, 16, 73, 5, -9, 30, 9, m); p.rbox(73, 16, 160, 5, -72, 30, 128, m);
+  p.rbox(260, 44, 20, 6, 0, 55, -37.5, m); p.rbox(20, 44, 165, 6, -120, 55, 130, m);
+  p.rbox(18, 30, 95, 6, 121, 40, 0, m); p.rbox(95, 30, 18, 6, -82.5, 40, 203.5, m);
+  for (let i = 0; i < 4; i++) p.rbox(40, 36, 12, 6, -80 + i * 55, 62, -22, i % 2 ? M.throwBlanket : M.pillow);
+  for (let i = 0; i < 2; i++) p.rbox(12, 36, 40, 6, -104, 62, 90 + i * 60, i ? M.throwBlanket : M.pillow);
+  collide(470, 812, 730, 905); collide(470, 905, 565, 1070);
+}
+table(650, 990, 40, 42, M.walnut); table(612, 1040, 36, 36, M.counter);
+{ const p = piece(640, 1282, 0, 0); p.b(210, 45, 40, 0, 22.5, 0, M.walnut); p.b(160, 92, 4, 0, 130, 15, M.screen); collide(535, 1262, 745, 1302); }
+{ const p = piece(395, 860, 0); p.cyl(14, 16, 2, 0, 1, 0, M.matteBlack); p.cyl(1, 1, 150, 0, 76, 0, M.matteBlack, 8); p.cyl(14, 22, 26, 0, 158, 0, M.lampShade); }
+plant(760, 1270, 1.1); plant(395, 1270, 1);
+
+// --- פינת אוכל ---
+table(1227, 1104, 70, 76, M.oak); collide(1150, 1027, 1304, 1181);
+for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + Math.PI / 2; chair(1227 + Math.cos(a) * 88, 1104 + Math.sin(a) * 88, a * 180 / Math.PI + 90); }
+pendant(1227, 1104, 95, 45);
+
+// --- מטבח ---
+function counterRun(x0, y0, x1, y1) {
+  box(x0, y0, x1, y1, 8, 86, M.cabinet); box(x0 + 3, y0 + 3, x1 - 3, y1 - 3, 0, 8, M.matteBlack, house, false);
+  box(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 86, 90, M.counter); collide(x0, y0, x1, y1);
+}
+counterRun(956, 596, 1306, 656);           // לאורך הקיר הצפוני
+// קיר ארונות גבוהים בצד ימין (מזרח)
+box(1306, 596, 1366, 798, 0, 240, M.cabinet); collide(1306, 596, 1366, 798);
+for (const y of [663, 731]) box(1305, y - .4, 1306.5, y + .4, 2, 238, M.black, house, false);
+{ const p = piece(1305, 765, 90, 0); p.b(56, 56, 2, 0, 110, 0, M.screen); p.b(56, 45, 2, 0, 50, 0, M.screen); }
+for (const y of [630, 697]) { const p = piece(1305, y, 90, 0); p.b(2, 40, 2, 25, 120, 0, M.chrome); }
+box(1296, 800, 1366, 895, 0, 210, M.steel); collide(1296, 800, 1366, 895);    // מקרר
+box(1296, 846, 1298, 848, 90, 140, M.black);
+// ארונות עליונים
+
+// כיור + ברז
+{ const p = piece(1116, 626, 0, 90); p.b(70, 1, 40, 0, .5, 0, M.steel); p.cyl(1.5, 1.5, 30, 0, 15, -18, M.chrome, 8); p.b(3, 3, 18, 0, 30, -10, M.chrome); }
+// כיריים + קולט אדים
+{ const p = piece(1003, 626, 0, 90); p.b(60, 1, 50, 0, .5, 0, M.screen); for (const [x, z] of [[-14, -12], [14, -12], [-14, 12], [14, 12]]) p.cyl(8, 8, .5, x, 1, z, M.black); }
+
+// אי
+box(954, 782, 1186, 911, 8, 88, M.walnut); box(951, 779, 1189, 914, 88, 92, M.counter); collide(954, 782, 1186, 911);
+for (let i = 0; i < 4; i++) { const p = piece(985 + i * 57, 945, 0); p.cyl(19, 19, 4, 0, 72, 0, M.oak); p.cyl(1.5, 1.5, 70, 0, 35, 0, M.matteBlack, 8); p.cyl(18, 18, 1, 0, 25, 0, M.matteBlack, 20); }
+pendant(1020, 846, 90, 26); pendant(1120, 846, 90, 26);
+plant(845, 680, .8);
+
+// --- ממ"ד / חדר שינה דרומי ---
+rug(1300, 1430, 1505, 1600, M.rug2);
+bed(1402, 1583, 160, 200, 180); collide(1319, 1478, 1485, 1683);
+nightstand(1295, 1660, 180, true); nightstand(1508, 1660, 180, true);
+wardrobe(1216, 1313, 1336, 1373);
+wallTV(1402, 1316, 0, 110);
+toilet(1235, 1545, 90);
+vanity(1083, 1630, 1150, 1683, 's');
+shower(1150, 1573, 1263, 1683, ['w']);
+
+// --- מרפסת ---
+table(1582, 745, 70, 75, M.white);
+for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; chair(1582 + Math.cos(a) * 88, 745 + Math.sin(a) * 88, a * 180 / Math.PI + 90, M.matteBlack, M.white); }
+collide(1505, 668, 1660, 822);
+plant(1420, 610, 1.2); plant(1720, 1230, 1.3); plant(1420, 1230, 1);
+{ const p = piece(1600, 1050, 90); p.b(190, 12, 80, 0, 25, 0, M.walnut); p.rbox(180, 12, 70, 5, 0, 37, 0, M.linen); } // מיטת שיזוף
+
+/* ============================================================
+   שלב 3: סטיילינג – אמנות, שולחן ערוך, פרטי מטבח
+   ============================================================ */
+const ARTS = [];
+function art(cx, cy, rot, w, h, zc = 165) {
+  const p = piece(cx, cy, rot, 0);
+  p.b(w + 6, h + 6, 3, 0, zc, 0, M.artFrame);
+  const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * h / w);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const pl = p.b(w, h, 3.8, 0, zc, 0, new THREE.MeshStandardMaterial({ map: t, roughness: .9 })); pl.castShadow = false;
+  ARTS.push({ c, t, seed: ARTS.length * 7 + 3 });
+}
+function drawArt(a, pal) {
+  let sd = a.seed; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const g = a.c.getContext('2d'), w = a.c.width, h = a.c.height;
+  g.fillStyle = pal[0]; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = pal[1 + i % (pal.length - 1)]; g.globalAlpha = .55 + R() * .45;
+    const k = R();
+    if (k < .4) { g.beginPath(); g.arc(R() * w, R() * h, (.12 + R() * .3) * w, 0, 7); g.fill(); }
+    else if (k < .75) g.fillRect(R() * w * .7, R() * h * .7, (.2 + R() * .5) * w, (.1 + R() * .4) * h);
+    else { g.beginPath(); g.moveTo(0, R() * h); g.bezierCurveTo(w * .3, R() * h, w * .6, R() * h, w, R() * h); g.lineTo(w, h); g.lineTo(0, h); g.fill(); }
+  }
+  g.globalAlpha = 1; a.t.needsUpdate = true;
+}
+art(378, 1040, 90, 150, 100, 175);      // סלון
+art(1273, 1242, 0, 110, 80);            // פינת אוכל
+art(384, 480, 90, 55, 75);              // מסדרון חדרים
+art(1402, 1680, 0, 110, 55, 170);       // ממ"ד מעל המיטה
+art(215, 335, 0, 50, 65);               // חדר ילדים 1
+art(250, 316, 0, 90, 60, 160);          // חדר ארונות/הורים
+// שולחן אוכל ערוך
+{ const p = piece(1227, 1104, 0, 76);
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + Math.PI / 2, x = Math.cos(a) * 46, z = Math.sin(a) * 46;
+    p.cyl(13, 9, 1.2, x, .6, z, M.ceramic, 28); p.cyl(8, 6, 3, x, 2.6, z, M.accent, 20);
+    const gl = p.cyl(3, 2.4, 10, x + Math.cos(a + 1.2) * 15, 5, z + Math.sin(a + 1.2) * 15, M.glass, 12); gl.castShadow = false; }
+  p.cyl(7, 5, 18, 0, 9, 0, M.pot); for (let i = 0; i < 7; i++) p.sph(6, Math.cos(i * 2.4) * 7, 26 + (i % 3) * 6, Math.sin(i * 2.4) * 7, M.leaf, 1, 1.5, .6); }
+// אי: קערת פירות + אגרטל
+{ const p = piece(1070, 846, 0, 92);
+  p.cyl(17, 9, 7, -55, 3.5, 5, M.oak, 28); for (const [x, z, c] of [[-60, 2, 0xd9772b], [-50, 8, 0xc23b22], [-56, 12, 0xe3b23c], [-52, 0, 0x8fae3b]]) p.sph(4.5, x, 9, z, std(c, .6));
+  p.cyl(5, 7, 26, 60, 13, -10, M.ceramic); for (let i = 0; i < 6; i++) p.sph(5, 60 + Math.cos(i * 2.4) * 8, 36 + (i % 3) * 7, -10 + Math.sin(i * 2.4) * 8, M.leaf, 1, 1.6, .6); }
+// שיש מטבח: קרש חיתוך, בקבוקים, קומקום
+{ const p = piece(1200, 626, 0, 90);
+  p.b(40, 2, 26, 0, 1, 4, M.oak); p.cyl(3, 3, 22, 40, 11, -14, std(0x3d5a3a, .3)); p.cyl(3, 3, 26, 48, 13, -16, std(0x7a2e22, .3)); p.cyl(3.5, 3.5, 18, 56, 9, -12, M.glass);
+  p.cyl(8, 9, 16, 80, 8, -6, M.steel); p.cyl(5, 5, 10, -40, 5, -14, M.ceramic); p.cyl(5, 5, 10, -52, 5, -12, M.ceramic); }
+// סלון: ספרים ואגרטל על שולחן הקפה
+{ const p = piece(650, 990, 20, 42); p.b(26, 3, 18, -8, 1.5, 0, M.accent); p.b(22, 3, 16, -7, 4.5, 1, M.ceramic); p.cyl(5, 4, 14, 14, 7, -6, M.pot); }
+plant(770, 830, 1.2);
+
+const STYLES = {
+  modern: { wall: 0xf1f0ed, ceiling: 0xfafafa, wood: 0xd6cfc4, tile: 0xdedcd8, bath: 0xd8d8d8, oak: 0xb39a7c, walnut: 0x2f3034, cabinet: 0xeeeeec, counter: 0xe9e9e9, sofa: 0x8b8e93, linen: 0xf2f2f0, rug: 0xcfcfcd, rug2: 0x6f757b, throwBlanket: 0x33373b, accent: 0xb5803a, pillow: 0xffffff, frame: 0x1e1f22, chrome: 0xd8d8d8, pot: 0x3f4245, doorWood: 0xe8e6e2, frontDoor: 0x26272a, artFrame: 0x1c1c1c, lampShade: 0xf4f1ea,
+    art: ['#ecebe7', '#1f1f22', '#8b8e93', '#b5803a', '#d9d6cf'] },
+  scandi: { wall: 0xfaf8f3, ceiling: 0xffffff, wood: 0xffffff, tile: 0xfbf9f5, bath: 0xf0f0ee, oak: 0xe2c8a2, walnut: 0xd6b88e, cabinet: 0xffffff, counter: 0xfaf8f4, sofa: 0xdad5cc, linen: 0xffffff, rug: 0xeee8dc, rug2: 0xb7c4be, throwBlanket: 0x9db3a5, accent: 0xd9a68f, pillow: 0xffffff, frame: 0xf2f2f0, chrome: 0xcfcfcf, pot: 0xece7de, doorWood: 0xffffff, frontDoor: 0xc9a77c, artFrame: 0xe6d3b3, lampShade: 0xffffff,
+    art: ['#f6f2ea', '#9db3a5', '#d9a68f', '#e6d3b3', '#5f6f6a'] },
+  luxury: { wall: 0xeee4d5, ceiling: 0xf8f3ea, wood: 0xb5855a, tile: 0xf2e8d6, bath: 0xe6d9c4, oak: 0x8b5a36, walnut: 0x47291a, cabinet: 0xd8c9b2, counter: 0xfff6ea, sofa: 0xb59a7a, linen: 0xf6eee0, rug: 0xc8ae88, rug2: 0x7b5b44, throwBlanket: 0x7d2f26, accent: 0xb8893a, pillow: 0xf4e9d6, frame: 0x2b241f, chrome: 0xc9a25a, pot: 0x2c2826, doorWood: 0xd8c4a6, frontDoor: 0x3a2317, artFrame: 0xb8893a, lampShade: 0xffe9c2,
+    art: ['#efe2cc', '#7d2f26', '#b8893a', '#47291a', '#d8c4a6'] },
+};
+function applyStyle(name) {
+  const st = STYLES[name];
+  for (const k in st) if (k !== 'art') M[k].color.set(st[k]);
+  M.chrome.roughness = name === 'luxury' ? .28 : .15;
+  ARTS.forEach(a => drawArt(a, st.art));
+  document.querySelectorAll('#styles button').forEach(b => b.classList.toggle('on', b.dataset.s === name));
+}
+document.querySelectorAll('#styles button').forEach(b => b.onclick = () => applyStyle(b.dataset.s));
+applyStyle('modern');
+
+/* ============================================================
+   תאורה: אור יום רך
+   ============================================================ */
+const hemi = new THREE.HemisphereLight(0xe6f0ff, 0xcfc6b8, 1.0); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dc, 3.2);
+const CENTER = new THREE.Vector3(8.6, 0, 8.8);
+sun.position.copy(CENTER).add(new THREE.Vector3(14, 16, 7));   // בוקר: מזרח-דרום
+sun.target.position.copy(CENTER);
+sun.castShadow = true;
+sun.shadow.mapSize.setScalar(matchMedia('(pointer: coarse)').matches ? 2048 : 4096);
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
+scene.add(sun, sun.target);
+// תאורת תקרה (מילוי ביום, דולקת בלילה) + ספוטים שקועים
+const fills = [], lamps = [];
+M.spot = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd9a0, emissiveIntensity: 0 });
+for (const [x, y] of [[580, 1000], [1100, 850], [590, 170], [195, 476], [187, 786], [1372, 1500], [438, 500], [1227, 1000], [650, 410]]) {
+  const top = topAt(x, y);
+  const l = new THREE.PointLight(0xffe2bd, 2, 10, 1.8); l.position.set(x / 100, (top - 30) / 100, y / 100); scene.add(l); fills.push(l);
+  AUTO = false; const d = mesh(new THREE.CylinderGeometry(.07, .07, .02, 16), M.spot, ceilings, false, false); d.position.set(x / 100, top / 100 - .012, y / 100); AUTO = true;
+}
+// מנורות: תלויות, עומדת ושידות לילה – נדלקות בלילה
+for (const [x, y, h] of [[1227, 1104, 150], [1070, 846, 160], [395, 860, 150], [510, 50, 85], [742, 50, 85], [1295, 1660, 85], [1508, 1660, 85]]) {
+  const l = new THREE.PointLight(0xffb873, 0, 5.5, 1.6); l.position.set(x / 100, (h + LV(x, y)) / 100, y / 100); scene.add(l); lamps.push(l);
+}
+M.lampShade.emissive.set(0xffc47a);
+
+renderer.shadowMap.autoUpdate = false;
+const _c1 = new THREE.Color(), _c2 = new THREE.Color(); let allMats = null;
+const smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+function setTime(t) {
+  const f = Math.min(1, Math.max(0, (t - 6) / 12.5)), el = Math.sin(Math.PI * f);
+  const n = smooth(17.7, 19.3, t), day = 1 - n;
+  // מסלול השמש: זורחת במזרח (מרפסת), עוברת בדרום, שוקעת במערב
+  const elev = (5 + el * 58) * Math.PI / 180, az = Math.PI * f;
+  sun.position.set(Math.cos(az) * Math.cos(elev), Math.sin(elev), (0.5 * Math.sin(az) + 0.12) * Math.cos(elev)).normalize().multiplyScalar(32).add(CENTER);
+  const warm = 1 - smooth(0.1, 0.5, el);
+  sun.color.copy(_c1.set(0xfff4e6)).lerp(_c2.set(0xff9648), warm * 0.9);
+  sun.intensity = day * (2.6 + el * 0.8 + warm * 2.2);       // חיזוק בשעת הזהב
+  hemi.color.copy(_c1.set(0x27304d)).lerp(_c2.set(0xe6f0ff), day);
+  hemi.groundColor.copy(_c1.set(0x14161f)).lerp(_c2.set(0xcfc6b8), day);
+  hemi.intensity = 0.14 + day * (0.5 + 0.5 * el);
+  _c1.set(0xf3b487).lerp(_c2.set(0xbfd6e6), smooth(0, 0.45, el)).lerp(_c2.set(0x0a0f1e), n);
+  scene.background.copy(_c1); scene.fog.color.copy(_c1);
+  if (!allMats) { allMats = new Set(); scene.traverse(o => { if (o.material && 'envMapIntensity' in o.material) allMats.add(o.material); }); }
+  const env = 0.05 + 0.85 * day * (0.55 + 0.45 * el);
+  allMats.forEach(m => m.envMapIntensity = m === M.glass ? env * 1.6 : env);
+  fills.forEach(l => l.intensity = day * (0.8 + el * 1.0) + n * 7);
+  lamps.forEach(l => l.intensity = n * 5);
+  M.lampShade.emissiveIntensity = 0.1 + n * 1.7; M.spot.emissiveIntensity = n * 2.5;
+  renderer.toneMappingExposure = 1.05 - n * 0.08;
+  renderer.shadowMap.needsUpdate = true;                       // צללים מחושבים רק כשהשמש זזה
+  const hh = Math.floor(t), mm = Math.round((t - hh) * 60 / 5) * 5 % 60;
+  const name = t < 9 ? 'בוקר' : t < 16 ? 'צהריים' : t < 17.6 ? 'אחר הצהריים' : t < 19.2 ? 'שקיעה' : 'לילה';
+  document.getElementById('todLabel').textContent = `${hh}:${String(mm).padStart(2, '0')} · ${name}`;
+}
+const tod = document.getElementById('tod');
+tod.addEventListener('input', () => setTime(+tod.value));
+setTime(+tod.value);
+
+/* ============================================================
+   שליטה: הליכה בגוף ראשון + בית בובות
+   ============================================================ */
+const EYE = 1.6, RAD = 17; // ס"מ
+const walk = new PointerLockControls(camera, renderer.domElement);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true; orbit.maxPolarAngle = Math.PI * 0.47; orbit.minDistance = 5; orbit.maxDistance = 45;
+orbit.target.set(8.2, 0, 9.0); orbit.enabled = false;
+
+// באייפון אין Pointer Lock – קריאה ישירה ל-unlock זורקת שגיאה ועוצרת את הסיור
+const safeUnlock = () => { try { if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock(); } catch (e) {} };
+let mode = 'walk';
+const walkPos = new THREE.Vector3(9.15, EYE, 12.6);
+camera.position.copy(walkPos); camera.lookAt(9.15, EYE, 9.5);
+const ui = { walk: document.getElementById('bWalk'), doll: document.getElementById('bDoll'), hint: document.getElementById('hint'), cross: document.getElementById('cross') };
+
+function setMode(m) {
+  const prev = mode; mode = m;
+  ui.walk.classList.toggle('on', m === 'walk'); ui.doll.classList.toggle('on', m === 'doll');
+  const doll = m === 'doll';
+  ceilings.visible = roof.visible = !doll; labels.visible = doll;
+  orbit.enabled = doll;
+  if (doll) {
+    if (prev === 'walk') walkPos.copy(camera.position); safeUnlock();
+    camera.position.set(8.2, 13.5, 17.5); orbit.target.set(8.2, 0, 9.0); orbit.update();
+    ui.hint.innerHTML = HINT_DOLL;
+  } else {
+    camera.position.copy(walkPos); camera.rotation.set(0, 0, 0); camera.lookAt(walkPos.x, walkPos.y, walkPos.z - 3);
+    ui.hint.innerHTML = HINT_WALK;
+  }
+}
+ui.walk.onclick = () => { if (tour) stopTour(); setMode('walk'); };
+ui.doll.onclick = () => { if (tour) stopTour(); setMode('doll'); };
+const isTouch = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+const HINT_WALK = isTouch ? 'ג׳ויסטיק לתנועה · גררו על המסך כדי להסתכל' : 'לחצו על המסך כדי להתחיל ללכת · <b>W A S D</b> או החצים לתנועה · עכבר להסתכל · <b>Shift</b> לריצה · <b>Esc</b> לשחרור העכבר';
+const HINT_DOLL = isTouch ? 'גררו כדי לסובב · צביטה לזום · שתי אצבעות להזזה' : 'גררו כדי לסובב · גלגלת כדי לזום · קליק ימני כדי להזיז';
+renderer.domElement.addEventListener('click', () => { if (mode === 'walk' && !isTouch) { try { walk.lock(); } catch (e) {} } });
+// --- מגע: ג׳ויסטיק לתנועה + גרירה להסתכל ---
+const joy = { x: 0, y: 0 }, joyEl = document.getElementById('joy'), knob = joyEl.firstElementChild;
+function joySet(e) { const r = joyEl.getBoundingClientRect(), t = e.targetTouches[0]; let x = (t.clientX - r.left - r.width / 2) / 40, y = (t.clientY - r.top - r.height / 2) / 40;
+  const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } joy.x = x; joy.y = y; knob.style.transform = `translate(${x * 34}px,${y * 34}px)`; e.preventDefault(); }
+joyEl.addEventListener('touchstart', joySet, { passive: false }); joyEl.addEventListener('touchmove', joySet, { passive: false });
+const joyEnd = () => { joy.x = joy.y = 0; knob.style.transform = ''; };
+joyEl.addEventListener('touchend', joyEnd); joyEl.addEventListener('touchcancel', joyEnd);
+let lookId = null, lx = 0, ly = 0; const _eu = new THREE.Euler(0, 0, 0, 'YXZ');
+renderer.domElement.addEventListener('touchstart', e => { if (mode !== 'walk') return; const t = e.changedTouches[0]; lookId = t.identifier; lx = t.clientX; ly = t.clientY; }, { passive: true });
+renderer.domElement.addEventListener('touchmove', e => { if (mode !== 'walk') return;
+  for (const t of e.changedTouches) if (t.identifier === lookId) { _eu.setFromQuaternion(camera.quaternion);
+    _eu.y -= (t.clientX - lx) * 0.005; _eu.x = Math.max(-1.3, Math.min(1.3, _eu.x - (t.clientY - ly) * 0.005)); _eu.z = 0; camera.quaternion.setFromEuler(_eu); lx = t.clientX; ly = t.clientY; }
+  e.preventDefault(); }, { passive: false });
+ui.hint.innerHTML = HINT_WALK;
+const syncJoy = () => joyEl.style.display = (isTouch && mode === 'walk') ? 'block' : 'none';
+walk.addEventListener('lock', () => { ui.hint.style.opacity = 0; ui.cross.style.display = 'block'; });
+walk.addEventListener('unlock', () => { ui.hint.style.opacity = 1; ui.cross.style.display = 'none'; });
+
+const keys = {};
+addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') setMode(mode === 'walk' ? 'doll' : 'walk'); });
+addEventListener('keyup', e => keys[e.code] = false);
+
+function floorAt(x, y) { // ס"מ
+  if (inWing(x, y)) return WING;
+  if (y >= 700 && y <= 800) {
+    if (x >= 370 && x <= 540) return WING;
+    if (x > 540 && x <= 742) return Math.min(8, Math.ceil((742 - x) / 25)) * WING / 8;
+  }
+  return 0;
+}
+function blocked(x, y) { // x,y בס"מ
+  for (const [x0, y0, x1, y1] of colliders) {
+    if (x > x0 - RAD && x < x1 + RAD && y > y0 - RAD && y < y1 + RAD) return true;
+  }
+  return false;
+}
+const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+function updateWalk(dt) {
+  const sp = (keys.ShiftLeft || keys.ShiftRight ? 3.2 : 1.6) * dt;
+  let f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y;
+  let s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  if (Math.abs(f) < .05 && Math.abs(s) < .05) return;
+  camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+  right.crossVectors(fwd, camera.up).normalize();
+  const mv = fwd.multiplyScalar(f).add(right.multiplyScalar(s)); mv.multiplyScalar(sp * Math.min(1, Math.hypot(f, s)) / (mv.length() || 1));
+  const p = camera.position;
+  if (!blocked((p.x + mv.x) * 100, p.z * 100)) p.x += mv.x;
+  if (!blocked(p.x * 100, (p.z + mv.z) * 100)) p.z += mv.z;
+}
+function settleY(dt) {
+  const p = camera.position, target = EYE + floorAt(p.x * 100, p.z * 100) / 100;
+  p.y += (target - p.y) * Math.min(1, dt * 10);
+}
+
+/* ============================================================
+   שלב 5: סיור מודרך + מוזיקה שנוצרת בקוד
+   ============================================================ */
+const TOUR = [
+  { p: [909, 1400] }, { p: [909, 1230] }, { p: [905, 1130] },
+  { p: [880, 1070], look: [560, 960], name: 'סלון', area: 'כ-21 מ"ר', text: 'חלל פתוח בגובה כפול, ספה פינתית וחלונות לשני כיוונים' },
+  { p: [1040, 1020], look: [1250, 1110], name: 'פינת אוכל', area: 'כ-15 מ"ר', text: 'שולחן עגול מול דלת הזזה של 3 מטר שנפתחת אל המרפסת' },
+  { p: [1095, 1000] }, { p: [1095, 1200] }, { p: [1117, 1260] }, { p: [1122, 1340] }, { p: [1128, 1440] },
+  { p: [1270, 1402], look: [1420, 1600], name: 'חדר שינה (ממ"ד)', area: '10.7 מ"ר', text: 'יחידה עצמאית עם מקלחת צמודה ומסדרון כניסה פרטי' },
+  { p: [1128, 1445] }, { p: [1122, 1340] }, { p: [1117, 1255] }, { p: [1090, 1190] }, { p: [1060, 990] }, { p: [920, 960] }, { p: [900, 720] },
+  { p: [1010, 725], look: [1260, 640], name: 'מטבח', area: 'כ-18 מ"ר', text: 'אי מרכזי עם 4 מקומות ישיבה, משטחי שיש וקיר ארונות גבוהים' },
+  { p: [1242, 718] }, { p: [1242, 950] }, { p: [1340, 1000] }, { p: [1345, 1150] },
+  { p: [1470, 1130], look: [1590, 800], name: 'מרפסת', area: 'כ-26 מ"ר', text: 'דק עץ עם פינת אוכל חיצונית, פונה מזרחה לשמש של הבוקר' },
+  { p: [1345, 1150] }, { p: [1340, 1000] }, { p: [1242, 955] }, { p: [930, 955] }, { p: [850, 800] }, { p: [790, 753] }, { p: [540, 753] }, { p: [438, 753] }, { p: [438, 690] },
+  { p: [290, 695], look: [140, 860], name: 'חדר ילדים 2', area: 'כ-10 מ"ר', text: 'מיטה וחצי, ארון 3 דלתות ופינת עבודה עם טלוויזיה, שני חלונות' },
+  { p: [438, 690] }, { p: [438, 573] },
+  { p: [290, 573], look: [150, 420], name: 'חדר ילדים 1', area: 'כ-10 מ"ר', text: 'מיטה וחצי, ארון 3 דלתות ופינת עבודה עם טלוויזיה, שני חלונות' },
+  { p: [438, 573] }, { p: [438, 440] }, { p: [438, 330] },
+  { p: [452, 262], look: [640, 120], name: 'חדר הורים', area: 'כ-18 מ"ר', text: 'סוויטה עם חדר ארונות וחדר רחצה צמוד, חלונות לצפון ולמזרח' },
+];
+let tour = null, TS = 1;
+const cardEl = document.getElementById('card'), bTour = document.getElementById('bTour'), bMute = document.getElementById('bMute');
+const DOLL_POS = new THREE.Vector3(8.2, 13.5, 17.5), DOLL_TGT = new THREE.Vector3(8.2, 0, 9.0);
+const _dummy = new THREE.PerspectiveCamera();
+function showCard(w) {
+  cardEl.querySelector('h3').textContent = w.name; cardEl.querySelector('small').textContent = w.area; cardEl.querySelector('p').textContent = w.text;
+  cardEl.classList.add('show');
+}
+function startTour() {
+  if (mode === 'doll') setMode('walk');
+  safeUnlock(); mode = 'tour';
+  ui.walk.classList.remove('on'); ui.doll.classList.remove('on'); bTour.classList.add('on'); bTour.textContent = '■ עצור סיור';
+  ui.hint.style.opacity = 0;
+  camera.position.set(TOUR[0].p[0] / 100, EYE, TOUR[0].p[1] / 100);
+  tour = { i: 1, pause: 0, yaw: 0, pitch: 0, phase: 'move' };
+  startMusic();
+}
+function stopTour(finished) {
+  if (!tour) return;
+  tour = null; cardEl.classList.remove('show'); bTour.classList.remove('on'); bTour.textContent = '▶ התחל סיור';
+  ui.hint.style.opacity = 1; fadeMusic();
+  const last = TOUR[TOUR.length - 1].p;
+  walkPos.set(last[0] / 100, EYE + floorAt(last[0], last[1]) / 100, last[1] / 100);
+  mode = 'tour-end';
+  if (!finished) { walkPos.copy(camera.position); setMode('walk'); }
+}
+bTour.onclick = () => tour ? stopTour() : startTour();
+addEventListener('keydown', e => { if (e.code === 'Escape' && tour) stopTour(); });
+function updateTour(dt) {
+  const T = tour, p = camera.position;
+  if (T.phase === 'rise') {
+    T.t += dt * TS / 4.5; const k = smooth(0, 1, T.t);
+    p.lerpVectors(T.from, DOLL_POS, k);
+    _dummy.position.copy(p); _dummy.lookAt(DOLL_TGT); camera.quaternion.slerp(_dummy.quaternion, Math.min(1, dt * 2.5 * TS));
+    if (T.t >= 1) { stopTour(true); setMode('doll'); }
+    return;
+  }
+  const next = () => { T.i++; if (T.i >= TOUR.length) { T.phase = 'rise'; T.t = 0; T.from = p.clone(); ceilings.visible = roof.visible = false; labels.visible = true; } };
+  let wantYaw = T.yaw, wantPitch = -0.04;
+  if (T.pause > 0) {
+    const w = TOUR[T.i], lx = w.look[0] / 100, lz = w.look[1] / 100, ly = (floorAt(w.look[0], w.look[1]) + 95) / 100;
+    wantYaw = Math.atan2(-(lx - p.x), -(lz - p.z)); wantPitch = Math.atan2(ly - p.y, Math.hypot(lx - p.x, lz - p.z));
+    T.pause -= dt * TS;
+    if (T.pause <= 0) { cardEl.classList.remove('show'); next(); }
+  } else {
+    const w = TOUR[T.i], dx = w.p[0] / 100 - p.x, dz = w.p[1] / 100 - p.z, d = Math.hypot(dx, dz), step = 1.1 * TS * dt;
+    if (d <= step) { p.x += dx; p.z += dz; if (w.name) { T.pause = 6; showCard(w); } else next(); }
+    else { p.x += dx / d * step; p.z += dz / d * step; wantYaw = Math.atan2(-dx, -dz); }
+  }
+  let diff = wantYaw - T.yaw; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  T.yaw += diff * Math.min(1, dt * 2.2 * TS); T.pitch += (wantPitch - T.pitch) * Math.min(1, dt * 2 * TS);
+  camera.rotation.set(T.pitch, T.yaw, 0, 'YXZ');
+  settleY(dt * TS);
+}
+function checkPath() { // בדיקה שהמסלול לא חוצה קירות או רהיטים
+  const hits = [];
+  for (let i = 1; i < TOUR.length; i++) { const a = TOUR[i - 1].p, b = TOUR[i].p, n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4);
+    for (let k = 0; k <= n; k++) { const x = a[0] + (b[0] - a[0]) * k / n, y = a[1] + (b[1] - a[1]) * k / n;
+      for (const c of colliders) if (x > c[0] - 8 && x < c[2] + 8 && y > c[1] - 8 && y < c[3] + 8) { hits.push([i, Math.round(x), Math.round(y), c.join(',')]); k = n; break; } } }
+  return hits;
+}
+function tourGoto(n) { const stops = TOUR.filter(w => w.name), w = stops[n], p = camera.position;
+  p.set(w.p[0] / 100, EYE + floorAt(w.p[0], w.p[1]) / 100, w.p[1] / 100); camera.lookAt(w.look[0] / 100, (floorAt(w.look[0], w.look[1]) + 95) / 100, w.look[1] / 100); showCard(w); }
+
+// --- מסך פתיחה ---
+const welcome = document.getElementById('welcome');
+document.getElementById('wTitle').textContent = PROJECT.title; document.getElementById('wSub').textContent = PROJECT.subtitle;
+document.getElementById('wTour').onclick = () => { welcome.classList.add('hide'); startTour(); };
+document.getElementById('wWalk').onclick = () => { welcome.classList.add('hide'); if (!isTouch) { try { walk.lock(); } catch (e) {} } };
+
+// --- מוזיקת רקע: אקורדים רכים ומנגינה פנטטונית, נוצרים ב-Web Audio ---
+let AC = null, master = null, bus = null, musicTimer = null, nextBar = 0, barN = 0, muted = false;
+const CHORDS = [[261.63, 329.63, 392.0, 493.88], [220.0, 261.63, 329.63, 392.0], [174.61, 220.0, 261.63, 329.63], [196.0, 246.94, 293.66, 329.63]];
+const PENT = [523.25, 587.33, 659.25, 783.99, 880.0];
+function tone(f, t, d, g, type) {
+  const o = AC.createOscillator(), a = AC.createGain(); o.type = type; o.frequency.value = f;
+  a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(g, t + Math.min(1.3, d * 0.3)); a.gain.linearRampToValueAtTime(0, t + d);
+  o.connect(a); a.connect(bus); o.start(t); o.stop(t + d + 0.05);
+}
+function schedMusic() {
+  while (nextBar < AC.currentTime + 1) {
+    CHORDS[barN % 4].forEach(f => { tone(f / 2, nextBar, 4.5, 0.06, 'triangle'); tone(f, nextBar, 4.5, 0.09, 'triangle'); tone(f * 2, nextBar, 4.5, 0.025, 'sine'); });
+    for (let k = 0; k < 4; k++) if (Math.random() < 0.6) tone(PENT[Math.floor(Math.random() * 5)], nextBar + k + (Math.random() < 0.4 ? 0.5 : 0), 1.8, 0.09, 'sine');
+    nextBar += 4; barN++;
+  }
+}
+// פתיחת האודיו בטלפון: iOS משתיק Web Audio כשמתג ההשתקה פועל, אלא אם מתנגן גם אלמנט אודיו רגיל
+let silentEl = null;
+function unlockAudio() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  try {
+    if (!silentEl) {
+      const n = 4000, b = new ArrayBuffer(44 + n), v = new DataView(b), W = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      W(0, 'RIFF'); v.setUint32(4, 36 + n, true); W(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); W(36, 'data'); v.setUint32(40, n, true);
+      for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+      silentEl = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' }))); silentEl.loop = true; silentEl.setAttribute('playsinline', '');
+    }
+    const pr = silentEl.play(); if (pr && pr.catch) pr.catch(() => {});
+  } catch (e) {}
+  try { if (AC && AC.state !== 'running') AC.resume(); } catch (e) {}
+}
+['touchend', 'pointerup', 'click'].forEach(ev => addEventListener(ev, () => { if (tour) unlockAudio(); }, true));
+const VOL = 1.0;
+function startMusic() {
+  try {
+    unlockAudio();
+    if (!AC) {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain(); bus = AC.createBiquadFilter(); bus.type = 'lowpass'; bus.frequency.value = 2600;
+      const dl = AC.createDelay(1), fb = AC.createGain(); dl.delayTime.value = 0.43; fb.gain.value = 0.33;
+      bus.connect(master); bus.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(master); const comp = AC.createDynamicsCompressor(); master.connect(comp); comp.connect(AC.destination);
+    }
+    AC.resume(); master.gain.cancelScheduledValues(AC.currentTime); master.gain.setValueAtTime(muted ? 0 : VOL, AC.currentTime);
+    nextBar = AC.currentTime + 0.1; clearInterval(musicTimer); musicTimer = setInterval(schedMusic, 200);
+  } catch (e) { /* אין אודיו – הסיור ממשיך בלי מוזיקה */ }
+}
+function fadeMusic() {
+  if (!AC) return; clearInterval(musicTimer); setTimeout(() => { if (!tour && silentEl) silentEl.pause(); }, 3200);
+  master.gain.cancelScheduledValues(AC.currentTime); master.gain.setValueAtTime(master.gain.value, AC.currentTime); master.gain.linearRampToValueAtTime(0, AC.currentTime + 3);
+}
+bMute.onclick = () => { muted = !muted; bMute.textContent = muted ? '🔇' : '🔊'; if (AC && tour) master.gain.setTargetAtTime(muted ? 0 : VOL, AC.currentTime, 0.1); };
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  syncJoy();
+  if (tour) updateTour(dt); else if (mode === 'walk') { updateWalk(dt); settleY(dt); } else orbit.update();
+  renderer.render(scene, camera);
+});
+// לבדיקות
+window.__tour = { THREE, scene, camera, setMode, renderer, orbit, floorAt, applyStyle, setTime, startTour, checkPath, tourGoto, joy, ROOMS, WALLS, DOORS, WINDOWS, setTS: v => TS = v, state: () => ({ mode, i: tour && tour.i, phase: tour && tour.phase }) };
+</script>
+</body>
+</html>
